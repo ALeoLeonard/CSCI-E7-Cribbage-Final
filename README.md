@@ -1,62 +1,90 @@
 # Cribbage Game
 
-Welcome to Andy Leonard's **CSCI E-7 Cribbage Game**! This program implements the classic card game of Cribbage, allowing you to play against the computer.
+A full-featured web implementation of the classic card game Cribbage, built as a React + FastAPI application with single-player AI, multiplayer WebSocket support, animations, and sound effects.
+
+Originally created as Andy Leonard's **CSCI E-7** final project, converted from a Python CLI game into a modern web app.
 
 ## Features
 
-- Full implementation of Cribbage rules, including:
-  - Hand scoring (15s, pairs, runs, flushes, and "His Nobs").
-  - The play phase ("pegging") with scoring for 15, 31, and "Go".
-  - Crib scoring and automatic dealer switching.
-- User-friendly interface with prompts for human moves and card selections.
-- Randomized deck shuffling and computer card selection.
-- Emoji-enhanced card suits for a fun and clear display of the deck.
+- Complete Cribbage rules: 15s, pairs, runs, flushes, nobs, pegging, crib scoring
+- Three AI difficulty levels (Easy, Medium, Hard)
+- Multiplayer via WebSocket matchmaking
+- Split-screen layout with S-shaped cribbage board and fanned card play areas
+- Web Audio API sound effects (card taps, plays, shuffles, scoring)
+- Computer thinking delay for natural play pacing
+- Animated card dealing, playing, and score floating
+
+## Quick Start
+
+### Option 1: Local Development
+
+**Backend** (Python 3.10+):
+```bash
+pip install -r backend/requirements.txt
+python3 -m uvicorn backend.main:app --reload
+```
+
+**Frontend** (Node 18+):
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173 — the Vite dev server proxies `/api` and `/ws` to the backend on port 8000.
+
+### Option 2: Docker
+
+```bash
+docker compose up --build
+```
+
+Frontend on http://localhost:3000, Backend on http://localhost:8000.
+
+## Architecture
+
+```
+├── backend/                  # FastAPI (Python)
+│   ├── main.py               # App entry, CORS, routes
+│   ├── game/                 # Core game logic
+│   │   ├── game_engine.py    # Single-player state machine
+│   │   ├── multiplayer_engine.py  # Two-human state machine
+│   │   ├── scoring.py        # Hand + play-phase scoring
+│   │   ├── ai.py             # Easy/Medium/Hard AI
+│   │   └── ...
+│   ├── api/                  # REST + WebSocket handlers
+│   ├── services/             # Session storage, matchmaking
+│   └── tests/                # 29 pytest tests
+├── frontend/                 # React + TypeScript + Vite
+│   └── src/
+│       ├── components/       # Board, Card, Game, Layout, Lobby
+│       ├── store/            # Zustand stores (game, lobby, sound)
+│       ├── hooks/            # useSound (Web Audio synthesizer)
+│       └── api/              # REST client, WebSocket client
+└── docker-compose.yml
+```
 
 ## How to Play
 
-1. **Objective**: Be the first player to score 121 points.
-2. **Setup**:
-   - Each player (you and the computer) is dealt 6 cards.
-   - Each player discards 2 cards to the dealer's crib.
-3. **Gameplay**:
-   - A starter card is revealed.
-   - Players alternate playing cards in the **play phase**:
-     - Score points for combinations like 15 or 31 during the play.
-   - After the play phase, scores are tallied for:
-     - Non-dealer's hand, dealer's hand, and the dealer's crib.
-   - The roles of dealer and non-dealer switch after each round.
-4. **Scoring**:
-   - Points are awarded for combinations like 15s, pairs, runs, flushes, and "His Nobs".
-   - The game ends when a player reaches 121 points.
+1. **Objective**: First to 121 points wins
+2. **Discard**: Each player is dealt 6 cards and discards 2 to the dealer's crib
+3. **Play (Pegging)**: Alternate playing cards — score for 15s, 31s, pairs, and runs
+4. **Count**: Score hands and crib for 15s, pairs, runs, flushes, and nobs
+5. **Repeat**: Dealer alternates each round until someone reaches 121
 
-## Controls and Input
+## Tests
 
-- When it's your turn to discard to the crib or play a card, follow the on-screen prompts.
-- Select cards by their indices (numbers shown next to your cards).
-- The computer opponent will make moves automatically.
+```bash
+# Backend
+python3 -m pytest backend/tests/ -v
 
-## Running the Game
+# Frontend type check
+cd frontend && npm run build
+```
 
-Ensure you have Python installed, then run the program with:
+## Original CLI Game
 
+The original single-file Python game is preserved at `cribbage.py`:
 ```bash
 python cribbage.py
 ```
-
-## Future Improvements
-
-- Add scoring for runs during the play phase.
-- Improve the computer's strategy for choosing crib and play cards.
-- Enhance the UI with better visualization or potentially a graphical interface.
-
-## Code Highlights
-
-- **Deck Creation**: The deck is built dynamically with suits and ranks mapped to values.
-- **Emoji Suits**: Card suits are displayed using emoji for improved readability.
-- **Scoring Logic**:
-  - `calculate_score`: Computes points for all combinations in a hand.
-  - `calculate_runs`: Detects sequences of consecutive cards for runs scoring.
-- **Subset Calculation**: Recursive function `get_all_subsets` simplifies detecting 15s in hands.
-
-
-
