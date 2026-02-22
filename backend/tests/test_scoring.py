@@ -145,6 +145,32 @@ class TestZeroHand:
 # Play-phase scoring tests
 # ============================
 
+class TestCribFlush:
+    def test_four_card_flush_invalid_in_crib(self):
+        """In crib, 4-card flush does NOT count — need all 5."""
+        hand = [card("2", "Hearts"), card("4", "Hearts"), card("8", "Hearts"), card("K", "Hearts")]
+        starter = card("A", "Clubs")
+        score, events = calculate_score(hand, starter, is_crib=True)
+        flush_pts = sum(e.points for e in events if "flush" in e.reason.lower())
+        assert flush_pts == 0
+
+    def test_five_card_flush_valid_in_crib(self):
+        """In crib, 5-card flush IS valid."""
+        hand = [card("2", "Hearts"), card("4", "Hearts"), card("8", "Hearts"), card("K", "Hearts")]
+        starter = card("A", "Hearts")
+        score, events = calculate_score(hand, starter, is_crib=True)
+        flush_pts = sum(e.points for e in events if "flush" in e.reason.lower())
+        assert flush_pts == 5
+
+    def test_four_card_flush_valid_in_hand(self):
+        """In hand (not crib), 4-card flush counts."""
+        hand = [card("2", "Hearts"), card("4", "Hearts"), card("8", "Hearts"), card("K", "Hearts")]
+        starter = card("A", "Clubs")
+        score, events = calculate_score(hand, starter, is_crib=False)
+        flush_pts = sum(e.points for e in events if "flush" in e.reason.lower())
+        assert flush_pts == 4
+
+
 class TestPlayScoring:
     def test_fifteen_during_play(self):
         pile = [card("7"), card("8")]
@@ -182,3 +208,13 @@ class TestPlayScoring:
         pile = [card("A"), card("3")]
         events = calculate_play_score(pile, 4)
         assert len(events) == 0
+
+    def test_four_of_kind_during_play(self):
+        pile = [card("7"), card("7", "Diamonds"), card("7", "Clubs"), card("7", "Spades")]
+        events = calculate_play_score(pile, 28)
+        assert any(e.points == 12 for e in events)
+
+    def test_run_of_four_during_play(self):
+        pile = [card("3"), card("5"), card("4"), card("6")]
+        events = calculate_play_score(pile, 18)
+        assert any(e.points == 4 and "run" in e.reason.lower() for e in events)
