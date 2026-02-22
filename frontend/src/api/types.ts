@@ -61,6 +61,7 @@ export interface GameState {
   play_pile: Card[];
   running_total: number;
   last_action?: LastAction;
+  action_log: LastAction[];
   score_breakdown?: ScoreBreakdown;
   winner?: string;
   round_number: number;

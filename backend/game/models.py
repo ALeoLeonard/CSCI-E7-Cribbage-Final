@@ -103,6 +103,7 @@ class GameStateResponse(BaseModel):
     play_pile: list[Card] = Field(default_factory=list)
     running_total: int = 0
     last_action: Optional[LastAction] = None
+    action_log: list[LastAction] = Field(default_factory=list)
     score_breakdown: Optional[ScoreBreakdown] = None
     winner: Optional[str] = None
     round_number: int = 1

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../api/client';
-import type { AIDifficulty, GameState } from '../api/types';
+import type { AIDifficulty, GameState, LastAction } from '../api/types';
 import { sounds, ensureAudioReady } from '../hooks/useSound';
 import { useSoundStore } from './soundStore';
 
@@ -9,6 +9,14 @@ function playSound(name: keyof typeof sounds) {
     ensureAudioReady();
     sounds[name]();
   }
+}
+
+function playScoreSound(action: LastAction | undefined) {
+  if (!action) return;
+  const events = action.score_events ?? [];
+  if (events.some((e) => e.reason.includes('15'))) playSound('fifteen');
+  else if (events.some((e) => e.reason.includes('31'))) playSound('thirtyOne');
+  else if (events.reduce((s, e) => s + e.points, 0) > 0) playSound('score');
 }
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -70,7 +78,79 @@ export const useGameStore = create<GameStore>((set, get) => ({
     try {
       const updated = await api.discard(game.game_id, selectedIndices);
       playSound('shuffle');
-      set({ game: updated, loading: false, selectedIndices: [] });
+      const log = updated.action_log ?? [];
+      const computerPlays = log.filter(
+        (a) => a.actor === updated.opponent.name && a.action === 'play',
+      );
+
+      if (computerPlays.length === 0) {
+        set({ game: updated, loading: false, selectedIndices: [] });
+        return;
+      }
+
+      // Show the phase transition first (play phase starts)
+      set({
+        game: {
+          ...updated,
+          play_pile: [],
+          running_total: 0,
+          last_action: undefined,
+          action_log: [],
+        },
+        loading: false,
+        selectedIndices: [],
+      });
+
+      // Step through computer's opening plays
+      let playPile: typeof updated.play_pile = [];
+      let runTotal = 0;
+      let oppCount = updated.opponent.hand_count + computerPlays.length;
+      let oppScore = updated.opponent.score;
+
+      for (let i = 0; i < log.length; i++) {
+        await delay(800 + Math.random() * 400);
+        const action = log[i];
+        const isLast = i === log.length - 1;
+
+        let displayPile = playPile;
+        let displayTotal = runTotal;
+
+        if (action.action === 'play' && action.card) {
+          playSound('cardPlay');
+          displayPile = [...playPile, action.card];
+          displayTotal = runTotal + action.card.value;
+          oppCount--;
+          const pts = action.score_events.reduce((s, e) => s + e.points, 0);
+          oppScore += pts;
+        }
+
+        playScoreSound(action);
+
+        if (isLast) {
+          set({ game: updated });
+        } else {
+          set({
+            game: {
+              ...get().game!,
+              play_pile: displayPile,
+              running_total: displayTotal,
+              opponent: { ...updated.opponent, hand_count: oppCount, score: oppScore },
+              last_action: action,
+              action_log: log.slice(0, i + 1),
+            },
+          });
+        }
+
+        // Update tracking for next iteration
+        if (action.action === 'play' && action.card) {
+          playPile = displayPile;
+          runTotal = displayTotal;
+          if (runTotal >= 31) {
+            playPile = [];
+            runTotal = 0;
+          }
+        }
+      }
     } catch (e: any) {
       set({ error: e.message, loading: false });
     }
@@ -82,46 +162,111 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const updated = await api.playCard(game.game_id, idx);
-      const computerActed = updated.last_action?.actor === game.opponent.name;
+      const log = updated.action_log ?? [];
+      const computerActions = log.filter(
+        (a) => a.actor === game.opponent.name && a.action === 'play',
+      );
 
-      if (computerActed) {
-        // Show player's move immediately
-        const playerCard = game.player.hand[idx];
+      if (computerActions.length === 0) {
+        // No computer play — just show player's card
         playSound('cardPlay');
-        const intermediate: GameState = {
-          ...game,
-          player: {
-            ...game.player,
-            hand: game.player.hand.filter((_, i) => i !== idx),
-          },
-          play_pile: [...game.play_pile, playerCard],
-          running_total: game.running_total + playerCard.value,
-          last_action: {
-            actor: game.player.name,
-            action: 'play',
-            card: playerCard,
-            score_events: [],
-            message: `${game.player.name} played ${playerCard.rank}`,
-          },
-        };
-        set({ game: intermediate, loading: false });
-
-        // Computer "thinks"
-        await delay(800 + Math.random() * 400);
-
-        // Reveal computer's move
-        playSound('cardPlay');
-        set({ game: updated });
-      } else {
-        playSound('cardPlay');
+        playScoreSound(log[0]);
         set({ game: updated, loading: false });
+        return;
       }
 
-      // Play score sounds
-      const events = updated.last_action?.score_events ?? [];
-      if (events.some((e) => e.reason.includes('15'))) playSound('fifteen');
-      else if (events.some((e) => e.reason.includes('31'))) playSound('thirtyOne');
-      else if (events.reduce((s, e) => s + e.points, 0) > 0) playSound('score');
+      // Step 1: Show player's card immediately
+      const playerCard = game.player.hand[idx];
+      const playerHand = game.player.hand.filter((_, i) => i !== idx);
+      playSound('cardPlay');
+      let playPile = [...game.play_pile, playerCard];
+      let runTotal = game.running_total + playerCard.value;
+      let oppCount = game.opponent.hand_count;
+      let playerScore = game.player.score;
+      let oppScore = game.opponent.score;
+
+      // Apply player score events
+      const playerAction = log[0];
+      if (playerAction) {
+        const pts = playerAction.score_events.reduce((s, e) => s + e.points, 0);
+        if (playerAction.actor === game.player.name) playerScore += pts;
+        playScoreSound(playerAction);
+      }
+
+      set({
+        game: {
+          ...game,
+          player: { ...game.player, hand: playerHand, score: playerScore },
+          opponent: { ...game.opponent, score: oppScore },
+          play_pile: playPile,
+          running_total: runTotal,
+          last_action: playerAction,
+          action_log: [playerAction],
+        },
+        loading: false,
+      });
+
+      // Reset pile after showing the card (for next iteration tracking)
+      if (runTotal >= 31) {
+        playPile = [];
+        runTotal = 0;
+      }
+
+      // Step 2+: Show each subsequent action with delay
+      for (let i = 1; i < log.length; i++) {
+        await delay(800 + Math.random() * 400);
+        const action = log[i];
+        const isLast = i === log.length - 1;
+
+        // Build display state for this step
+        let displayPile = playPile;
+        let displayTotal = runTotal;
+
+        if (action.action === 'play' && action.card) {
+          playSound('cardPlay');
+          displayPile = [...playPile, action.card];
+          displayTotal = runTotal + action.card.value;
+          if (action.actor === game.opponent.name) oppCount--;
+          const pts = action.score_events.reduce((s, e) => s + e.points, 0);
+          if (action.actor === game.opponent.name) oppScore += pts;
+          else playerScore += pts;
+        } else if (action.action === 'go') {
+          playSound('go');
+        } else if (action.action === 'score') {
+          const pts = action.score_events.reduce((s, e) => s + e.points, 0);
+          if (action.actor === game.opponent.name) oppScore += pts;
+          else playerScore += pts;
+        }
+
+        playScoreSound(action);
+
+        if (isLast) {
+          // Use server's authoritative final state
+          set({ game: updated });
+        } else {
+          set({
+            game: {
+              ...get().game!,
+              play_pile: displayPile,
+              running_total: displayTotal,
+              player: { ...game.player, hand: playerHand, score: playerScore },
+              opponent: { ...game.opponent, hand_count: oppCount, score: oppScore },
+              last_action: action,
+              action_log: log.slice(0, i + 1),
+            },
+          });
+        }
+
+        // Update tracking for next iteration
+        if (action.action === 'play' && action.card) {
+          playPile = displayPile;
+          runTotal = displayTotal;
+          if (runTotal >= 31) {
+            playPile = [];
+            runTotal = 0;
+          }
+        }
+      }
     } catch (e: any) {
       set({ error: e.message, loading: false });
     }
@@ -134,14 +279,86 @@ export const useGameStore = create<GameStore>((set, get) => ({
     try {
       playSound('go');
       const updated = await api.sayGo(game.game_id);
+      const log = updated.action_log ?? [];
+      const computerPlays = log.filter(
+        (a) => a.actor === game.opponent.name && a.action === 'play',
+      );
 
-      // If computer responded, add thinking delay
-      if (updated.last_action?.actor === game.opponent.name) {
-        await delay(600 + Math.random() * 400);
-        playSound('cardPlay');
+      if (computerPlays.length === 0) {
+        // No computer card plays — just show final state
+        set({ game: updated, loading: false });
+        return;
       }
 
-      set({ game: updated, loading: false });
+      // Show human's Go immediately
+      set({
+        game: {
+          ...game,
+          last_action: log[0],
+          action_log: [log[0]],
+        },
+        loading: false,
+      });
+
+      // Step through subsequent actions with delays
+      let playPile = [...game.play_pile];
+      let runTotal = game.running_total;
+      let oppCount = game.opponent.hand_count;
+      let oppScore = game.opponent.score;
+      let playerScore = game.player.score;
+
+      for (let i = 1; i < log.length; i++) {
+        await delay(800 + Math.random() * 400);
+        const action = log[i];
+        const isLast = i === log.length - 1;
+
+        let displayPile = playPile;
+        let displayTotal = runTotal;
+
+        if (action.action === 'play' && action.card) {
+          playSound('cardPlay');
+          displayPile = [...playPile, action.card];
+          displayTotal = runTotal + action.card.value;
+          if (action.actor === game.opponent.name) oppCount--;
+          const pts = action.score_events.reduce((s, e) => s + e.points, 0);
+          if (action.actor === game.opponent.name) oppScore += pts;
+          else playerScore += pts;
+        } else if (action.action === 'go') {
+          playSound('go');
+        } else if (action.action === 'score') {
+          const pts = action.score_events.reduce((s, e) => s + e.points, 0);
+          if (action.actor === game.opponent.name) oppScore += pts;
+          else playerScore += pts;
+        }
+
+        playScoreSound(action);
+
+        if (isLast) {
+          set({ game: updated });
+        } else {
+          set({
+            game: {
+              ...get().game!,
+              play_pile: displayPile,
+              running_total: displayTotal,
+              player: { ...game.player, score: playerScore },
+              opponent: { ...game.opponent, hand_count: oppCount, score: oppScore },
+              last_action: action,
+              action_log: log.slice(0, i + 1),
+            },
+          });
+        }
+
+        // Update tracking for next iteration
+        if (action.action === 'play' && action.card) {
+          playPile = displayPile;
+          runTotal = displayTotal;
+          if (runTotal >= 31) {
+            playPile = [];
+            runTotal = 0;
+          }
+        }
+      }
     } catch (e: any) {
       set({ error: e.message, loading: false });
     }

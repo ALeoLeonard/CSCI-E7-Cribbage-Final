@@ -49,6 +49,7 @@ class GameEngine:
         self.last_go_by: str | None = None  # who said Go last
 
         self.last_action: LastAction | None = None
+        self.action_log: list[LastAction] = []
         self.score_breakdown: ScoreBreakdown | None = None
         self.winner: str | None = None
 
@@ -61,6 +62,11 @@ class GameEngine:
     @property
     def non_dealer(self) -> PlayerState:
         return self.computer if self.human.is_dealer else self.human
+
+    def _log_action(self, action: LastAction) -> None:
+        """Set last_action and append to action_log for the current API call."""
+        self.last_action = action
+        self.action_log.append(action)
 
     def _deal_round(self) -> None:
         """Shuffle, deal 6 to each, reset play state."""
@@ -102,6 +108,7 @@ class GameEngine:
 
     def discard(self, card_indices: list[int]) -> GameStateResponse:
         """Human discards 2 cards to crib."""
+        self.action_log = []
         if self.phase != GamePhase.DISCARD:
             raise ValueError(f"Cannot discard in phase {self.phase}")
         if len(card_indices) != 2:
@@ -124,12 +131,12 @@ class GameEngine:
         # Check for His Heels (Jack starter = 2 pts to dealer)
         if self.starter.rank == "J":
             self._add_score(self.dealer, 2)
-            self.last_action = LastAction(
+            self._log_action(LastAction(
                 actor=self.dealer.name,
                 action="score",
                 score_events=[ScoreEvent(player=self.dealer.name, points=2, reason="His Heels (Jack starter)")],
                 message=f"{self.dealer.name} scores 2 for His Heels!",
-            )
+            ))
             if self._check_winner():
                 return self.get_state()
 
@@ -150,6 +157,7 @@ class GameEngine:
 
     def play_card(self, card_index: int) -> GameStateResponse:
         """Human plays a card during pegging."""
+        self.action_log = []
         if self.phase != GamePhase.PLAY:
             raise ValueError(f"Cannot play in phase {self.phase}")
         if self.current_turn != "human":
@@ -175,13 +183,13 @@ class GameEngine:
             for e in events:
                 e.player = self.human.name
 
-        self.last_action = LastAction(
+        self._log_action(LastAction(
             actor=self.human.name,
             action="play",
             card=card,
             score_events=events,
             message=f"{self.human.name} plays {card.label}",
-        )
+        ))
 
         if self.running_total == 31:
             self.play_pile = []
@@ -207,6 +215,7 @@ class GameEngine:
 
     def say_go(self) -> GameStateResponse:
         """Human says Go (can't play any card ≤ 31)."""
+        self.action_log = []
         if self.phase != GamePhase.PLAY:
             raise ValueError(f"Cannot say go in phase {self.phase}")
         if self.current_turn != "human":
@@ -215,11 +224,11 @@ class GameEngine:
         if can_play(self.human_play_hand, self.running_total):
             raise ValueError("You have playable cards — you must play one")
 
-        self.last_action = LastAction(
+        self._log_action(LastAction(
             actor=self.human.name,
             action="go",
             message=f"{self.human.name} says Go!",
-        )
+        ))
 
         # Handle go logic
         self._handle_go("human")
@@ -232,12 +241,12 @@ class GameEngine:
             # Both said go — last card point, reset
             other = self.human if who_said_go == "computer" else self.computer
             self._add_score(other, 1)
-            self.last_action = LastAction(
+            self._log_action(LastAction(
                 actor=other.name,
                 action="score",
                 score_events=[ScoreEvent(player=other.name, points=1, reason="Go (last card)")],
                 message=f"{other.name} scores 1 for Go",
-            )
+            ))
             self.play_pile = []
             self.running_total = 0
             self.last_go_by = None
@@ -295,13 +304,13 @@ class GameEngine:
                 for e in events:
                     e.player = self.computer.name
 
-            self.last_action = LastAction(
+            self._log_action(LastAction(
                 actor=self.computer.name,
                 action="play",
                 card=card,
                 score_events=events,
                 message=f"Computer plays {card.label}",
-            )
+            ))
 
             if self.running_total == 31:
                 self.play_pile = []
@@ -349,6 +358,7 @@ class GameEngine:
 
     def acknowledge(self) -> GameStateResponse:
         """Advance through counting phases."""
+        self.action_log = []
         if self.phase == GamePhase.COUNT_NON_DEALER:
             score, events = calculate_score(self.non_dealer.hand, self.starter)
             for e in events:
@@ -360,12 +370,12 @@ class GameEngine:
                 items=events,
                 total=score,
             )
-            self.last_action = LastAction(
+            self._log_action(LastAction(
                 actor=self.non_dealer.name,
                 action="score",
                 score_events=events,
                 message=f"{self.non_dealer.name} scores {score} in hand",
-            )
+            ))
             if self._check_winner():
                 return self.get_state()
             self.phase = GamePhase.COUNT_DEALER
@@ -381,12 +391,12 @@ class GameEngine:
                 items=events,
                 total=score,
             )
-            self.last_action = LastAction(
+            self._log_action(LastAction(
                 actor=self.dealer.name,
                 action="score",
                 score_events=events,
                 message=f"{self.dealer.name} scores {score} in hand",
-            )
+            ))
             if self._check_winner():
                 return self.get_state()
             self.phase = GamePhase.COUNT_CRIB
@@ -402,12 +412,12 @@ class GameEngine:
                 items=events,
                 total=score,
             )
-            self.last_action = LastAction(
+            self._log_action(LastAction(
                 actor=self.dealer.name,
                 action="score",
                 score_events=events,
                 message=f"{self.dealer.name} scores {score} in crib",
-            )
+            ))
             if self._check_winner():
                 return self.get_state()
 
@@ -451,6 +461,7 @@ class GameEngine:
             play_pile=self.play_pile,
             running_total=self.running_total,
             last_action=self.last_action,
+            action_log=self.action_log,
             score_breakdown=self.score_breakdown,
             winner=self.winner,
             round_number=self.round_number,
