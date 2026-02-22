@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.routes_game import router as game_router
 from backend.api.routes_lobby import router as lobby_router
+from backend.api.routes_stats import router as stats_router
 from backend.config import settings
 
 app = FastAPI(title=settings.app_name)
@@ -19,6 +20,7 @@ app.add_middleware(
 
 app.include_router(game_router)
 app.include_router(lobby_router)
+app.include_router(stats_router)
 
 
 @app.get("/health")

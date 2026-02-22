@@ -11,6 +11,9 @@ __pycache__/
 node_modules/
 dist/
 
+# Data
+data/*.db
+
 # OS
 .DS_Store
 Thumbs.db

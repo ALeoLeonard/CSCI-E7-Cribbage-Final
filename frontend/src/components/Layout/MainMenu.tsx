@@ -4,11 +4,19 @@ import type { AIDifficulty } from '../../api/types';
 
 interface MainMenuProps {
   onMultiplayer?: () => void;
+  onStats?: () => void;
+  playerName?: string;
+  onNameChange?: (name: string) => void;
 }
 
-export function MainMenu({ onMultiplayer }: MainMenuProps) {
-  const [name, setName] = useState('Player');
+export function MainMenu({ onMultiplayer, onStats, playerName, onNameChange }: MainMenuProps) {
+  const [name, setName] = useState(playerName || 'Player');
   const { newGame, loading, difficulty, setDifficulty } = useGameStore();
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    onNameChange?.(value);
+  };
 
   const difficulties: { value: AIDifficulty; label: string; desc: string }[] = [
     { value: 'easy', label: 'Easy', desc: 'Random play' },
@@ -28,7 +36,7 @@ export function MainMenu({ onMultiplayer }: MainMenuProps) {
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => handleNameChange(e.target.value)}
             className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3
                        text-center text-lg focus:outline-none focus:border-gold
                        transition-colors"
@@ -76,6 +84,16 @@ export function MainMenu({ onMultiplayer }: MainMenuProps) {
                          hover:bg-white/20 active:scale-95 transition-all"
             >
               Multiplayer
+            </button>
+          )}
+
+          {onStats && (
+            <button
+              onClick={onStats}
+              className="w-full bg-white/10 text-white font-bold py-3 rounded-xl text-lg
+                         hover:bg-white/20 active:scale-95 transition-all"
+            >
+              Statistics
             </button>
           )}
         </div>

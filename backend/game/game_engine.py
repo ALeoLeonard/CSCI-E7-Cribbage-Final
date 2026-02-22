@@ -12,6 +12,7 @@ from .models import (
     Card,
     GamePhase,
     GameStateResponse,
+    GameStatsData,
     LastAction,
     OpponentView,
     PlayerState,
@@ -52,6 +53,11 @@ class GameEngine:
         self.action_log: list[LastAction] = []
         self.score_breakdown: ScoreBreakdown | None = None
         self.winner: str | None = None
+
+        # Stats tracking for human player
+        self.hand_scores: list[int] = []
+        self.crib_scores: list[int] = []
+        self.highest_hand_score: int = 0
 
         self._deal_round()
 
@@ -376,6 +382,10 @@ class GameEngine:
                 score_events=events,
                 message=f"{self.non_dealer.name} scores {score} in hand",
             ))
+            # Track stats for human player
+            if self.non_dealer is self.human:
+                self.hand_scores.append(score)
+                self.highest_hand_score = max(self.highest_hand_score, score)
             if self._check_winner():
                 return self.get_state()
             self.phase = GamePhase.COUNT_DEALER
@@ -397,6 +407,10 @@ class GameEngine:
                 score_events=events,
                 message=f"{self.dealer.name} scores {score} in hand",
             ))
+            # Track stats for human player
+            if self.dealer is self.human:
+                self.hand_scores.append(score)
+                self.highest_hand_score = max(self.highest_hand_score, score)
             if self._check_winner():
                 return self.get_state()
             self.phase = GamePhase.COUNT_CRIB
@@ -418,6 +432,9 @@ class GameEngine:
                 score_events=events,
                 message=f"{self.dealer.name} scores {score} in crib",
             ))
+            # Track crib stats for human player
+            if self.dealer is self.human:
+                self.crib_scores.append(score)
             if self._check_winner():
                 return self.get_state()
 
@@ -440,6 +457,15 @@ class GameEngine:
         else:
             human_hand = self.human.hand
             opponent_count = len(self.computer.hand)
+
+        game_stats = None
+        if self.phase == GamePhase.GAME_OVER:
+            game_stats = GameStatsData(
+                hand_scores=self.hand_scores,
+                crib_scores=self.crib_scores,
+                highest_hand_score=self.highest_hand_score,
+                total_points_scored=self.human.score,
+            )
 
         return GameStateResponse(
             game_id=self.game_id,
@@ -465,4 +491,5 @@ class GameEngine:
             score_breakdown=self.score_breakdown,
             winner=self.winner,
             round_number=self.round_number,
+            game_stats=game_stats,
         )

@@ -1,3 +1,5 @@
+import { useStatsStore } from '../../store/statsStore';
+
 interface GameOverModalProps {
   winner: string;
   playerName: string;
@@ -16,6 +18,7 @@ export function GameOverModal({
   onNewGame,
 }: GameOverModalProps) {
   const isWin = winner === playerName;
+  const currentStreak = useStatsStore((s) => s.stats?.current_streak ?? 0);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
@@ -27,6 +30,11 @@ export function GameOverModal({
         <p className="text-lg opacity-80 mb-4">
           {winner} wins the game!
         </p>
+        {isWin && currentStreak > 1 && (
+          <p className="text-gold font-bold mb-4">
+            {currentStreak} wins in a row!
+          </p>
+        )}
         <div className="flex justify-center gap-8 mb-6">
           <div>
             <div className="text-sm opacity-60">You</div>

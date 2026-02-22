@@ -11,6 +11,7 @@ from .models import (
     Card,
     GamePhase,
     GameStateResponse,
+    GameStatsData,
     LastAction,
     OpponentView,
     PlayerState,
@@ -49,6 +50,14 @@ class MultiplayerGameEngine:
         self.last_action: Optional[LastAction] = None
         self.score_breakdown: Optional[ScoreBreakdown] = None
         self.winner: Optional[str] = None
+
+        # Per-player stats tracking
+        self.player1_hand_scores: list[int] = []
+        self.player2_hand_scores: list[int] = []
+        self.player1_crib_scores: list[int] = []
+        self.player2_crib_scores: list[int] = []
+        self.player1_highest_hand: int = 0
+        self.player2_highest_hand: int = 0
 
         self._deal_round()
 
@@ -244,6 +253,20 @@ class MultiplayerGameEngine:
         self.running_total = 0
         self.phase = GamePhase.COUNT_NON_DEALER
 
+    def _track_hand_score(self, player: PlayerState, score: int) -> None:
+        if player is self.player1:
+            self.player1_hand_scores.append(score)
+            self.player1_highest_hand = max(self.player1_highest_hand, score)
+        else:
+            self.player2_hand_scores.append(score)
+            self.player2_highest_hand = max(self.player2_highest_hand, score)
+
+    def _track_crib_score(self, player: PlayerState, score: int) -> None:
+        if player is self.player1:
+            self.player1_crib_scores.append(score)
+        else:
+            self.player2_crib_scores.append(score)
+
     def acknowledge(self, player_id: str) -> GameStateResponse:
         if self.phase == GamePhase.COUNT_NON_DEALER:
             score, events = calculate_score(self.non_dealer.hand, self.starter)
@@ -253,6 +276,7 @@ class MultiplayerGameEngine:
             self.score_breakdown = ScoreBreakdown(
                 hand=self.non_dealer.hand, starter=self.starter, items=events, total=score
             )
+            self._track_hand_score(self.non_dealer, score)
             if self._check_winner():
                 return self.get_state(player_id)
             self.phase = GamePhase.COUNT_DEALER
@@ -265,6 +289,7 @@ class MultiplayerGameEngine:
             self.score_breakdown = ScoreBreakdown(
                 hand=self.dealer.hand, starter=self.starter, items=events, total=score
             )
+            self._track_hand_score(self.dealer, score)
             if self._check_winner():
                 return self.get_state(player_id)
             self.phase = GamePhase.COUNT_CRIB
@@ -277,6 +302,7 @@ class MultiplayerGameEngine:
             self.score_breakdown = ScoreBreakdown(
                 hand=self.crib, starter=self.starter, items=events, total=score
             )
+            self._track_crib_score(self.dealer, score)
             if self._check_winner():
                 return self.get_state(player_id)
             # Swap dealer, new round
@@ -305,6 +331,23 @@ class MultiplayerGameEngine:
             already = self.player1_discarded if player_id == "player1" else self.player2_discarded
             your_turn = not already
 
+        game_stats = None
+        if self.phase == GamePhase.GAME_OVER:
+            if player_id == "player1":
+                game_stats = GameStatsData(
+                    hand_scores=self.player1_hand_scores,
+                    crib_scores=self.player1_crib_scores,
+                    highest_hand_score=self.player1_highest_hand,
+                    total_points_scored=self.player1.score,
+                )
+            else:
+                game_stats = GameStatsData(
+                    hand_scores=self.player2_hand_scores,
+                    crib_scores=self.player2_crib_scores,
+                    highest_hand_score=self.player2_highest_hand,
+                    total_points_scored=self.player2.score,
+                )
+
         return GameStateResponse(
             game_id=self.game_id,
             phase=self.phase,
@@ -319,4 +362,5 @@ class MultiplayerGameEngine:
             winner=self.winner,
             round_number=self.round_number,
             your_turn=your_turn,
+            game_stats=game_stats,
         )

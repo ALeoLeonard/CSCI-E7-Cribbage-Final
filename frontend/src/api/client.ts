@@ -1,6 +1,7 @@
-import type { AIDifficulty, GameState } from './types';
+import type { AIDifficulty, GameState, PlayerStats, RecordGamePayload } from './types';
 
 const BASE = '/api/v1/game';
+const STATS_BASE = '/api/v1/stats';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const resp = await fetch(url, {
@@ -46,5 +47,16 @@ export const api = {
 
   acknowledge(gameId: string): Promise<GameState> {
     return request(`${BASE}/${gameId}/acknowledge`, { method: 'POST' });
+  },
+
+  recordGame(payload: RecordGamePayload): Promise<{ status: string }> {
+    return request(`${STATS_BASE}/record`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getStats(playerName: string): Promise<PlayerStats> {
+    return request(`${STATS_BASE}/${encodeURIComponent(playerName)}`);
   },
 };

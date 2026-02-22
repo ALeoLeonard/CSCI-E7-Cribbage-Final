@@ -92,6 +92,14 @@ class ScoreBreakdown(BaseModel):
     total: int
 
 
+class GameStatsData(BaseModel):
+    """Per-player scoring stats collected during a game."""
+    hand_scores: list[int] = Field(default_factory=list)
+    crib_scores: list[int] = Field(default_factory=list)
+    highest_hand_score: int = 0
+    total_points_scored: int = 0
+
+
 class GameStateResponse(BaseModel):
     """The full response sent to the frontend."""
     game_id: str
@@ -108,6 +116,7 @@ class GameStateResponse(BaseModel):
     winner: Optional[str] = None
     round_number: int = 1
     your_turn: bool = True
+    game_stats: Optional[GameStatsData] = None
 
 
 class NewGameRequest(BaseModel):
@@ -121,3 +130,40 @@ class DiscardRequest(BaseModel):
 
 class PlayCardRequest(BaseModel):
     card_index: int
+
+
+class RecordGameRequest(BaseModel):
+    player_name: str
+    opponent_name: str
+    player_score: int
+    opponent_score: int
+    won: bool
+    ai_difficulty: Optional[str] = None
+    game_mode: str = "single"  # "single" or "multiplayer"
+    hand_scores: list[int] = Field(default_factory=list)
+    crib_scores: list[int] = Field(default_factory=list)
+    highest_hand_score: int = 0
+    total_points_scored: int = 0
+
+
+class DifficultyStats(BaseModel):
+    difficulty: str
+    games: int
+    wins: int
+    losses: int
+    win_rate: float
+
+
+class PlayerStatsResponse(BaseModel):
+    player_name: str
+    games: int
+    wins: int
+    losses: int
+    win_rate: float
+    avg_hand_score: float
+    avg_crib_score: float
+    best_hand: int
+    total_points: int
+    current_streak: int  # positive = win streak, negative = loss streak
+    best_win_streak: int
+    per_difficulty: list[DifficultyStats] = Field(default_factory=list)

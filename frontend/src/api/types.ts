@@ -51,6 +51,13 @@ export interface ScoreBreakdown {
   total: number;
 }
 
+export interface GameStatsData {
+  hand_scores: number[];
+  crib_scores: number[];
+  highest_hand_score: number;
+  total_points_scored: number;
+}
+
 export interface GameState {
   game_id: string;
   phase: GamePhase;
@@ -66,4 +73,42 @@ export interface GameState {
   winner?: string;
   round_number: number;
   your_turn: boolean;
+  game_stats?: GameStatsData;
+}
+
+export interface RecordGamePayload {
+  player_name: string;
+  opponent_name: string;
+  player_score: number;
+  opponent_score: number;
+  won: boolean;
+  ai_difficulty?: string;
+  game_mode: string;
+  hand_scores: number[];
+  crib_scores: number[];
+  highest_hand_score: number;
+  total_points_scored: number;
+}
+
+export interface DifficultyStats {
+  difficulty: string;
+  games: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+}
+
+export interface PlayerStats {
+  player_name: string;
+  games: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  avg_hand_score: number;
+  avg_crib_score: number;
+  best_hand: number;
+  total_points: number;
+  current_streak: number;
+  best_win_streak: number;
+  per_difficulty: DifficultyStats[];
 }

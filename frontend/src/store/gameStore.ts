@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import type { AIDifficulty, GameState, LastAction } from '../api/types';
 import { sounds, ensureAudioReady } from '../hooks/useSound';
 import { useSoundStore } from './soundStore';
+import { useStatsStore } from './statsStore';
 
 function playSound(name: keyof typeof sounds) {
   if (useSoundStore.getState().enabled) {
@@ -22,6 +23,24 @@ function playScoreSound(action: LastAction | undefined) {
 function playGameOverSound(state: GameState) {
   if (!state.winner) return;
   playSound(state.winner === state.player.name ? 'win' : 'lose');
+}
+
+function recordGameResult(state: GameState, difficulty: AIDifficulty) {
+  if (!state.winner) return;
+  const stats = state.game_stats;
+  useStatsStore.getState().recordGame({
+    player_name: state.player.name,
+    opponent_name: state.opponent.name,
+    player_score: state.player.score,
+    opponent_score: state.opponent.score,
+    won: state.winner === state.player.name,
+    ai_difficulty: difficulty,
+    game_mode: 'single',
+    hand_scores: stats?.hand_scores ?? [],
+    crib_scores: stats?.crib_scores ?? [],
+    highest_hand_score: stats?.highest_hand_score ?? 0,
+    total_points_scored: stats?.total_points_scored ?? state.player.score,
+  });
 }
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -91,6 +110,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (computerPlays.length === 0) {
         set({ game: updated, loading: false, selectedIndices: [] });
         playGameOverSound(updated);
+        recordGameResult(updated, get().difficulty);
         return;
       }
 
@@ -135,6 +155,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (isLast) {
           set({ game: updated });
           playGameOverSound(updated);
+          recordGameResult(updated, get().difficulty);
         } else {
           set({
             game: {
@@ -180,6 +201,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         playScoreSound(log[0]);
         set({ game: updated, loading: false });
         playGameOverSound(updated);
+        recordGameResult(updated, get().difficulty);
         return;
       }
 
@@ -252,6 +274,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           // Use server's authoritative final state
           set({ game: updated });
           playGameOverSound(updated);
+          recordGameResult(updated, get().difficulty);
         } else {
           set({
             game: {
@@ -297,6 +320,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         // No computer card plays — just show final state
         set({ game: updated, loading: false });
         playGameOverSound(updated);
+        recordGameResult(updated, get().difficulty);
         return;
       }
 
@@ -346,6 +370,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (isLast) {
           set({ game: updated });
           playGameOverSound(updated);
+          recordGameResult(updated, get().difficulty);
         } else {
           set({
             game: {
@@ -385,6 +410,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       playSound('score');
       set({ game: updated, loading: false });
       playGameOverSound(updated);
+      recordGameResult(updated, get().difficulty);
     } catch (e: any) {
       set({ error: e.message, loading: false });
     }

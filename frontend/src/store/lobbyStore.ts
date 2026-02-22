@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { GameWebSocket } from '../api/websocket';
 import type { GameState } from '../api/types';
+import { useStatsStore } from './statsStore';
 
 type LobbyStatus = 'idle' | 'connecting' | 'waiting' | 'in_game';
 
@@ -17,6 +18,7 @@ interface LobbyStore {
   gameState: GameState | null;
   chatMessages: ChatMessage[];
   ws: GameWebSocket | null;
+  statsRecorded: boolean;
 
   quickMatch: (name: string) => void;
   createPrivate: (name: string) => void;
@@ -41,7 +43,27 @@ export const useLobbyStore = create<LobbyStore>((set, get) => {
     ws.on('waiting', () => set({ status: 'waiting' }));
     ws.on('private_created', (data: any) => set({ joinCode: data.code }));
     ws.on('game_start', (data: any) => set({ status: 'in_game', gameState: data.state }));
-    ws.on('game_state', (data: any) => set({ gameState: data.state }));
+    ws.on('game_state', (data: any) => {
+      const state = data.state as GameState;
+      set({ gameState: state });
+      // Record stats once when game ends
+      if (state.winner && !get().statsRecorded) {
+        set({ statsRecorded: true });
+        const stats = state.game_stats;
+        useStatsStore.getState().recordGame({
+          player_name: state.player.name,
+          opponent_name: state.opponent.name,
+          player_score: state.player.score,
+          opponent_score: state.opponent.score,
+          won: state.winner === state.player.name,
+          game_mode: 'multiplayer',
+          hand_scores: stats?.hand_scores ?? [],
+          crib_scores: stats?.crib_scores ?? [],
+          highest_hand_score: stats?.highest_hand_score ?? 0,
+          total_points_scored: stats?.total_points_scored ?? state.player.score,
+        });
+      }
+    });
     ws.on('opponent_disconnected', (data: any) => set({ error: data.message }));
     ws.on('chat', (data: any) => {
       const msg: ChatMessage = { from: 'opponent', text: data.message, ts: Date.now() };
@@ -60,6 +82,7 @@ export const useLobbyStore = create<LobbyStore>((set, get) => {
     gameState: null,
     chatMessages: [],
     ws: null,
+    statsRecorded: false,
 
     quickMatch: (name) => {
       const ws = setupWs();
@@ -91,7 +114,7 @@ export const useLobbyStore = create<LobbyStore>((set, get) => {
 
     disconnect: () => {
       get().ws?.disconnect();
-      set({ ws: null, status: 'idle', joinCode: null, error: null, gameState: null, chatMessages: [] });
+      set({ ws: null, status: 'idle', joinCode: null, error: null, gameState: null, chatMessages: [], statsRecorded: false });
     },
   };
 });
