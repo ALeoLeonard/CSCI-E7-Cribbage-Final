@@ -38,7 +38,9 @@ export class GameWebSocket {
       }
     };
 
-    this.ws.onerror = () => {};
+    this.ws.onerror = () => {
+      this.emit('error', { message: 'WebSocket connection error' });
+    };
   }
 
   disconnect(): void {
