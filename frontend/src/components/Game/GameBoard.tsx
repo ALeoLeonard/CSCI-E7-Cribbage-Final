@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { CardFan } from '../Card/CardFan';
 import { CribbageBoard } from '../Board/CribbageBoard';
+import { ScoreBar } from '../Board/ScoreBar';
 import { OpponentHand } from './OpponentHand';
 import { StarterCard } from './StarterCard';
 import { PlayArea } from './PlayArea';
@@ -106,7 +107,7 @@ export function GameBoard() {
   };
 
   return (
-    <div className="grid grid-cols-[2fr_3fr] flex-1 min-h-0 w-full px-2 pt-1 pb-1 gap-3 relative">
+    <div className="flex flex-col sm:grid sm:grid-cols-[2fr_3fr] flex-1 min-h-0 w-full px-2 pt-1 pb-1 gap-1 sm:gap-3 relative">
       {/* Floating score animation */}
       {floatingScore && (
         <div
@@ -118,8 +119,20 @@ export function GameBoard() {
         </div>
       )}
 
-      {/* ===== LEFT COLUMN: Board side ===== */}
-      <div className="flex flex-col items-center justify-center gap-3 min-h-0">
+      {/* ===== Mobile: compact score bar ===== */}
+      <div className="sm:hidden px-1">
+        <ScoreBar
+          playerScore={player.score}
+          opponentScore={opponent.score}
+          playerName={player.name}
+          opponentName={opponent.name}
+          playerIsDealer={player.is_dealer}
+          roundNumber={game.round_number}
+        />
+      </div>
+
+      {/* ===== Desktop: LEFT COLUMN — Board side ===== */}
+      <div className="hidden sm:flex flex-col items-center justify-center gap-3 min-h-0">
         <CribbageBoard
           playerScore={player.score}
           opponentScore={opponent.score}
@@ -147,10 +160,10 @@ export function GameBoard() {
         <span className="text-xs opacity-40">Round {game.round_number}</span>
       </div>
 
-      {/* ===== RIGHT COLUMN: Card play side ===== */}
-      <div className="grid grid-rows-[auto_1fr_auto] min-h-0 gap-1">
+      {/* ===== RIGHT COLUMN (desktop) / MAIN CONTENT (mobile) ===== */}
+      <div className="grid grid-rows-[auto_1fr_auto] min-h-0 gap-0.5 sm:gap-1 flex-1">
         {/* Opponent zone */}
-        <div className="flex items-center justify-between px-1 py-1">
+        <div className="flex items-center justify-between px-1 py-0.5 sm:py-1">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-sm font-bold text-red-300 truncate">
               {opponent.name}
@@ -159,7 +172,16 @@ export function GameBoard() {
               <span className="text-[10px] bg-gold/20 text-gold px-1.5 rounded-full">D</span>
             )}
           </div>
-          <OpponentHand cardCount={opponent.hand_count} />
+          <div className="flex items-center gap-2">
+            {/* Mobile: starter card inline with opponent hand */}
+            {starter && (
+              <div className="sm:hidden flex items-center gap-1">
+                <span className="text-[10px] opacity-50">Cut:</span>
+                <span className="text-xs font-bold">{starter.rank}{suitSymbol(starter.suit)}</span>
+              </div>
+            )}
+            <OpponentHand cardCount={opponent.hand_count} />
+          </div>
         </div>
 
         {/* Middle: play area / score breakdown */}
@@ -179,7 +201,7 @@ export function GameBoard() {
 
           {/* Last action message during play */}
           {last_action && phase === 'play' && (
-            <div className="text-center bg-black/20 rounded-lg px-4 py-1.5 text-sm animate-slide-in max-w-xs">
+            <div className="text-center bg-black/20 rounded-lg px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm animate-slide-in max-w-xs">
               <span className="font-medium">{last_action.message}</span>
               {last_action.score_events.map((e, i) => (
                 <span key={i} className="text-gold ml-2 font-bold">+{e.points}</span>
@@ -191,8 +213,8 @@ export function GameBoard() {
         {/* Player zone */}
         <div className="flex flex-col gap-0.5">
           {/* Phase badge + action button */}
-          <div className="flex items-center justify-center gap-3 min-h-[40px]">
-            <span className="bg-black/20 rounded-full px-3 py-1 text-sm font-medium inline-flex items-center gap-1.5">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 min-h-[36px] sm:min-h-[40px]">
+            <span className="bg-black/20 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm font-medium inline-flex items-center gap-1 sm:gap-1.5">
               <span>{phaseIcon()}</span>
               <span>{phaseLabel()}</span>
               {phase === 'discard' && (
@@ -204,7 +226,7 @@ export function GameBoard() {
               <button
                 onClick={discard}
                 disabled={loading || selectedIndices.length !== 2}
-                className="bg-gold text-black font-bold py-2 px-6 rounded-xl
+                className="bg-gold text-black font-bold py-1.5 sm:py-2 px-4 sm:px-6 rounded-xl text-sm sm:text-base
                            disabled:opacity-40 disabled:cursor-not-allowed
                            hover:bg-yellow-400 active:scale-95 transition-all
                            shadow-lg shadow-gold/30"
@@ -217,7 +239,7 @@ export function GameBoard() {
               <button
                 onClick={sayGo}
                 disabled={loading}
-                className="bg-red-600 text-white font-bold py-2 px-6 rounded-xl
+                className="bg-red-600 text-white font-bold py-1.5 sm:py-2 px-4 sm:px-6 rounded-xl text-sm sm:text-base
                            hover:bg-red-500 active:scale-95 transition-all
                            shadow-lg shadow-red-600/30 animate-glow"
               >
@@ -229,7 +251,7 @@ export function GameBoard() {
               <button
                 onClick={acknowledge}
                 disabled={loading}
-                className="bg-gold text-black font-bold py-2 px-6 rounded-xl
+                className="bg-gold text-black font-bold py-1.5 sm:py-2 px-4 sm:px-6 rounded-xl text-sm sm:text-base
                            hover:bg-yellow-400 active:scale-95 transition-all
                            shadow-lg shadow-gold/30"
               >
@@ -264,6 +286,7 @@ export function GameBoard() {
         <GameOverModal
           winner={winner}
           playerName={player.name}
+          opponentName={opponent.name}
           playerScore={player.score}
           opponentScore={opponent.score}
           onNewGame={() => newGame(player.name)}
@@ -271,4 +294,14 @@ export function GameBoard() {
       )}
     </div>
   );
+}
+
+function suitSymbol(suit: string): string {
+  switch (suit) {
+    case 'Hearts': return '♥';
+    case 'Diamonds': return '♦';
+    case 'Clubs': return '♣';
+    case 'Spades': return '♠';
+    default: return '';
+  }
 }

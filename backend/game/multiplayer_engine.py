@@ -201,6 +201,12 @@ class MultiplayerGameEngine:
         if can_play(hand, self.running_total):
             raise ValueError("You have playable cards")
 
+        player = self._player_by_id(player_id)
+        self.last_action = LastAction(
+            actor=player.name, action="go", card=None,
+            score_events=[], message=f"{player.name} says Go!",
+        )
+
         other_id = "player2" if player_id == "player1" else "player1"
         other_hand = self._play_hand(other_id)
 
@@ -264,7 +270,7 @@ class MultiplayerGameEngine:
             self.phase = GamePhase.COUNT_CRIB
 
         elif self.phase == GamePhase.COUNT_CRIB:
-            score, events = calculate_score(self.crib, self.starter)
+            score, events = calculate_score(self.crib, self.starter, is_crib=True)
             for e in events:
                 e.player = self.dealer.name
             self.dealer.score += score
@@ -292,6 +298,13 @@ class MultiplayerGameEngine:
             hand = player.hand
             opp_count = len(opp.hand)
 
+        your_turn = True
+        if self.phase == GamePhase.PLAY:
+            your_turn = self.current_turn == player_id
+        elif self.phase == GamePhase.DISCARD:
+            already = self.player1_discarded if player_id == "player1" else self.player2_discarded
+            your_turn = not already
+
         return GameStateResponse(
             game_id=self.game_id,
             phase=self.phase,
@@ -305,4 +318,5 @@ class MultiplayerGameEngine:
             score_breakdown=self.score_breakdown,
             winner=self.winner,
             round_number=self.round_number,
+            your_turn=your_turn,
         )

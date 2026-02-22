@@ -15,6 +15,6 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             data = await ws.receive_json()
             await manager.handle_message(conn_id, data)
     except WebSocketDisconnect:
-        manager.disconnect(conn_id)
+        await manager.disconnect(conn_id)
     except Exception:
-        manager.disconnect(conn_id)
+        await manager.disconnect(conn_id)

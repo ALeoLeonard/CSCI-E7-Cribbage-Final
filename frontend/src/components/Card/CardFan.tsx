@@ -11,7 +11,7 @@ interface CardFanProps {
 
 export function CardFan({ cards, selectedIndices = [], onCardClick, disabled }: CardFanProps) {
   return (
-    <div className="flex justify-center gap-1.5 flex-wrap px-2">
+    <div className="flex justify-center gap-1 sm:gap-1.5 flex-wrap px-1 sm:px-2">
       {cards.map((card, i) => (
         <Card
           key={cardKey(card)}

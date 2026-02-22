@@ -45,10 +45,11 @@ def calculate_runs(combined: list[Card]) -> list[tuple[int, int]]:
     return runs_found
 
 
-def calculate_score(hand: list[Card], starter: Card) -> tuple[int, list[ScoreEvent]]:
+def calculate_score(hand: list[Card], starter: Card, *, is_crib: bool = False) -> tuple[int, list[ScoreEvent]]:
     """
     Calculate the cribbage hand score.
     Returns (total_score, list of ScoreEvents).
+    When is_crib=True, only a 5-card flush (hand + starter) counts.
     """
     total = 0
     events: list[ScoreEvent] = []
@@ -90,14 +91,14 @@ def calculate_score(hand: list[Card], starter: Card) -> tuple[int, list[ScoreEve
         else:
             events.append(ScoreEvent(player="", points=pts, reason=f"Run of {run_length} for {pts}"))
 
-    # Flush
+    # Flush (crib requires all 5 cards to match suit)
     if len(hand) >= 4:
         first_suit = hand[0].suit
         if all(c.suit == first_suit for c in hand):
             if starter.suit == first_suit:
                 total += 5
                 events.append(ScoreEvent(player="", points=5, reason="Flush for 5"))
-            else:
+            elif not is_crib:
                 total += 4
                 events.append(ScoreEvent(player="", points=4, reason="Flush for 4"))
 

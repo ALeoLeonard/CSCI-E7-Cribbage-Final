@@ -107,6 +107,7 @@ class GameStateResponse(BaseModel):
     score_breakdown: Optional[ScoreBreakdown] = None
     winner: Optional[str] = None
     round_number: int = 1
+    your_turn: bool = True
 
 
 class NewGameRequest(BaseModel):

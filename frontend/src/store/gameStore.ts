@@ -19,6 +19,11 @@ function playScoreSound(action: LastAction | undefined) {
   else if (events.reduce((s, e) => s + e.points, 0) > 0) playSound('score');
 }
 
+function playGameOverSound(state: GameState) {
+  if (!state.winner) return;
+  playSound(state.winner === state.player.name ? 'win' : 'lose');
+}
+
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 interface GameStore {
@@ -85,6 +90,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       if (computerPlays.length === 0) {
         set({ game: updated, loading: false, selectedIndices: [] });
+        playGameOverSound(updated);
         return;
       }
 
@@ -128,6 +134,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         if (isLast) {
           set({ game: updated });
+          playGameOverSound(updated);
         } else {
           set({
             game: {
@@ -172,6 +179,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         playSound('cardPlay');
         playScoreSound(log[0]);
         set({ game: updated, loading: false });
+        playGameOverSound(updated);
         return;
       }
 
@@ -243,6 +251,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (isLast) {
           // Use server's authoritative final state
           set({ game: updated });
+          playGameOverSound(updated);
         } else {
           set({
             game: {
@@ -287,6 +296,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (computerPlays.length === 0) {
         // No computer card plays — just show final state
         set({ game: updated, loading: false });
+        playGameOverSound(updated);
         return;
       }
 
@@ -335,6 +345,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         if (isLast) {
           set({ game: updated });
+          playGameOverSound(updated);
         } else {
           set({
             game: {
@@ -373,6 +384,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       await delay(300);
       playSound('score');
       set({ game: updated, loading: false });
+      playGameOverSound(updated);
     } catch (e: any) {
       set({ error: e.message, loading: false });
     }

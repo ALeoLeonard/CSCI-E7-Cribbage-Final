@@ -65,4 +65,5 @@ export interface GameState {
   score_breakdown?: ScoreBreakdown;
   winner?: string;
   round_number: number;
+  your_turn: boolean;
 }

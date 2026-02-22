@@ -15,6 +15,10 @@ export function Card({ card, selected, onClick, disabled, small, dealDelay = 0 }
   const color = red ? 'text-card-red' : 'text-card-black';
   const suit = suitSymbol(card.suit);
 
+  const sizeClasses = small
+    ? 'w-14 h-20 text-xs'
+    : 'w-[68px] h-[95px] text-sm sm:w-[96px] sm:h-[134px] sm:text-base';
+
   return (
     <button
       onClick={onClick}
@@ -22,7 +26,7 @@ export function Card({ card, selected, onClick, disabled, small, dealDelay = 0 }
       aria-label={`${card.rank} of ${card.suit}`}
       className={`
         relative flex flex-col items-center justify-between
-        ${small ? 'w-14 h-20 text-xs' : 'w-[96px] h-[134px] text-base'}
+        ${sizeClasses}
         bg-card-white rounded-xl shadow-lg border-2
         transition-all duration-200 ease-out animate-deal
         ${selected
@@ -35,20 +39,20 @@ export function Card({ card, selected, onClick, disabled, small, dealDelay = 0 }
       style={{ animationDelay: `${dealDelay}ms` }}
     >
       {/* Top-left corner */}
-      <div className={`absolute ${small ? 'top-0.5 left-1' : 'top-1 left-1.5'} flex flex-col items-center leading-none`}>
+      <div className={`absolute ${small ? 'top-0.5 left-1' : 'top-0.5 left-1 sm:top-1 sm:left-1.5'} flex flex-col items-center leading-none`}>
         <span className="font-bold">{card.rank}</span>
-        <span className={small ? 'text-[10px]' : 'text-xs'}>{suit}</span>
+        <span className={small ? 'text-[10px]' : 'text-[10px] sm:text-xs'}>{suit}</span>
       </div>
 
       {/* Center suit */}
-      <div className={`flex items-center justify-center flex-1 ${small ? 'text-xl' : 'text-4xl'}`}>
+      <div className={`flex items-center justify-center flex-1 ${small ? 'text-xl' : 'text-2xl sm:text-4xl'}`}>
         {suit}
       </div>
 
       {/* Bottom-right corner (rotated) */}
-      <div className={`absolute ${small ? 'bottom-0.5 right-1' : 'bottom-1 right-1.5'} flex flex-col items-center leading-none rotate-180`}>
+      <div className={`absolute ${small ? 'bottom-0.5 right-1' : 'bottom-0.5 right-1 sm:bottom-1 sm:right-1.5'} flex flex-col items-center leading-none rotate-180`}>
         <span className="font-bold">{card.rank}</span>
-        <span className={small ? 'text-[10px]' : 'text-xs'}>{suit}</span>
+        <span className={small ? 'text-[10px]' : 'text-[10px] sm:text-xs'}>{suit}</span>
       </div>
     </button>
   );

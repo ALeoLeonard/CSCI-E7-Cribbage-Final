@@ -2,12 +2,24 @@ import { useEffect, useRef, useState } from 'react';
 import { useLobbyStore } from '../../store/lobbyStore';
 import { CardFan } from '../Card/CardFan';
 import { CribbageBoard } from '../Board/CribbageBoard';
+import { ScoreBar } from '../Board/ScoreBar';
 import { OpponentHand } from './OpponentHand';
 import { StarterCard } from './StarterCard';
 import { PlayArea } from './PlayArea';
 import { ScoreBreakdown } from './ScoreBreakdown';
 import { GameOverModal } from './GameOverModal';
+import { ChatBubble } from './ChatBubble';
 import type { Card as CardType } from '../../api/types';
+
+function suitSymbol(suit: string): string {
+  switch (suit) {
+    case 'Hearts': return '♥';
+    case 'Diamonds': return '♦';
+    case 'Clubs': return '♣';
+    case 'Spades': return '♠';
+    default: return '';
+  }
+}
 
 export function MultiplayerGameBoard() {
   const {
@@ -73,10 +85,10 @@ export function MultiplayerGameBoard() {
 
   if (!game) return null;
 
-  const { phase, player, opponent, starter, running_total, last_action, score_breakdown, winner } = game;
+  const { phase, player, opponent, starter, running_total, last_action, score_breakdown, winner, your_turn } = game;
 
-  const canPlay = (i: number) => phase === 'play' && player.hand[i]?.value + running_total <= 31;
-  const hasPlayableCard = phase === 'play' && player.hand.some((c) => c.value + running_total <= 31);
+  const canPlay = (i: number) => phase === 'play' && your_turn && player.hand[i]?.value + running_total <= 31;
+  const hasPlayableCard = phase === 'play' && your_turn && player.hand.some((c) => c.value + running_total <= 31);
 
   const toggleSelect = (i: number) => {
     setSelectedIndices((prev) =>
@@ -92,7 +104,7 @@ export function MultiplayerGameBoard() {
   };
 
   return (
-    <div className="grid grid-cols-[2fr_3fr] flex-1 min-h-0 w-full px-2 pt-1 pb-1 gap-3 relative">
+    <div className="flex flex-col sm:grid sm:grid-cols-[2fr_3fr] flex-1 min-h-0 w-full px-2 pt-1 pb-1 gap-1 sm:gap-3 relative">
       {floatingScore && (
         <div key={floatingScore.key}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50
@@ -101,8 +113,20 @@ export function MultiplayerGameBoard() {
         </div>
       )}
 
-      {/* ===== LEFT COLUMN: Board side ===== */}
-      <div className="flex flex-col items-center justify-center gap-3 min-h-0">
+      {/* ===== Mobile: compact score bar ===== */}
+      <div className="sm:hidden px-1">
+        <ScoreBar
+          playerScore={player.score}
+          opponentScore={opponent.score}
+          playerName={player.name}
+          opponentName={opponent.name}
+          playerIsDealer={player.is_dealer}
+          roundNumber={game.round_number}
+        />
+      </div>
+
+      {/* ===== Desktop: LEFT COLUMN — Board side ===== */}
+      <div className="hidden sm:flex flex-col items-center justify-center gap-3 min-h-0">
         <CribbageBoard
           playerScore={player.score}
           opponentScore={opponent.score}
@@ -125,13 +149,13 @@ export function MultiplayerGameBoard() {
           )}
         </div>
 
-        <span className="text-xs opacity-40">Round {game.round_number} - MP</span>
+        <span className="text-xs opacity-40">Round {game.round_number}</span>
       </div>
 
-      {/* ===== RIGHT COLUMN: Card play side ===== */}
-      <div className="grid grid-rows-[auto_1fr_auto] min-h-0 gap-1">
+      {/* ===== RIGHT COLUMN (desktop) / MAIN CONTENT (mobile) ===== */}
+      <div className="grid grid-rows-[auto_1fr_auto] min-h-0 gap-0.5 sm:gap-1 flex-1">
         {/* Opponent zone */}
-        <div className="flex items-center justify-between px-1 py-1">
+        <div className="flex items-center justify-between px-1 py-0.5 sm:py-1">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-sm font-bold text-red-300 truncate">
               {opponent.name}
@@ -140,7 +164,15 @@ export function MultiplayerGameBoard() {
               <span className="text-[10px] bg-gold/20 text-gold px-1.5 rounded-full">D</span>
             )}
           </div>
-          <OpponentHand cardCount={opponent.hand_count} />
+          <div className="flex items-center gap-2">
+            {starter && (
+              <div className="sm:hidden flex items-center gap-1">
+                <span className="text-[10px] opacity-50">Cut:</span>
+                <span className="text-xs font-bold">{starter.rank}{suitSymbol(starter.suit)}</span>
+              </div>
+            )}
+            <OpponentHand cardCount={opponent.hand_count} />
+          </div>
         </div>
 
         {/* Middle: play area / score breakdown */}
@@ -158,7 +190,7 @@ export function MultiplayerGameBoard() {
           )}
 
           {last_action && phase === 'play' && (
-            <div className="text-center bg-black/20 rounded-lg px-4 py-1.5 text-sm animate-slide-in max-w-xs">
+            <div className="text-center bg-black/20 rounded-lg px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm animate-slide-in max-w-xs">
               <span className="font-medium">{last_action.message}</span>
               {last_action.score_events.map((e, i) => (
                 <span key={i} className="text-gold ml-2 font-bold">+{e.points}</span>
@@ -169,18 +201,23 @@ export function MultiplayerGameBoard() {
 
         {/* Player zone */}
         <div className="flex flex-col gap-0.5">
-          <div className="flex items-center justify-center gap-3 min-h-[40px]">
-            {phase === 'discard' && (
+          <div className="flex items-center justify-center gap-2 sm:gap-3 min-h-[36px] sm:min-h-[40px]">
+            {!your_turn && phase !== 'game_over' && (
+              <span className="text-xs sm:text-sm text-white/50 italic animate-pulse">
+                Waiting for {opponent.name}...
+              </span>
+            )}
+            {phase === 'discard' && your_turn && (
               <button onClick={handleDiscard} disabled={selectedIndices.length !== 2}
-                className="bg-gold text-black font-bold py-2 px-6 rounded-xl
+                className="bg-gold text-black font-bold py-1.5 sm:py-2 px-4 sm:px-6 rounded-xl text-sm sm:text-base
                            disabled:opacity-40 hover:bg-yellow-400 active:scale-95 transition-all
                            shadow-lg shadow-gold/30">
                 Send to Crib
               </button>
             )}
-            {phase === 'play' && !hasPlayableCard && (
+            {phase === 'play' && your_turn && !hasPlayableCard && (
               <button onClick={sendGo}
-                className="bg-red-600 text-white font-bold py-2 px-6 rounded-xl
+                className="bg-red-600 text-white font-bold py-1.5 sm:py-2 px-4 sm:px-6 rounded-xl text-sm sm:text-base
                            hover:bg-red-500 active:scale-95 transition-all animate-glow
                            shadow-lg shadow-red-600/30">
                 Say Go!
@@ -188,7 +225,7 @@ export function MultiplayerGameBoard() {
             )}
             {(phase === 'count_non_dealer' || phase === 'count_dealer' || phase === 'count_crib') && (
               <button onClick={sendAcknowledge}
-                className="bg-gold text-black font-bold py-2 px-6 rounded-xl
+                className="bg-gold text-black font-bold py-1.5 sm:py-2 px-4 sm:px-6 rounded-xl text-sm sm:text-base
                            hover:bg-yellow-400 active:scale-95 transition-all
                            shadow-lg shadow-gold/30">
                 {phase === 'count_crib' ? 'Next Round' : 'Continue'}
@@ -199,14 +236,20 @@ export function MultiplayerGameBoard() {
           {error && (
             <div className="text-red-300 text-center text-sm bg-red-900/40 rounded-lg px-3 py-1">
               {error}
+              {error.includes('disconnected') && (
+                <button onClick={disconnect}
+                  className="ml-2 text-gold underline hover:text-yellow-400">
+                  Return to Menu
+                </button>
+              )}
             </div>
           )}
 
           <CardFan
             cards={player.hand}
-            selectedIndices={phase === 'discard' ? selectedIndices : []}
+            selectedIndices={phase === 'discard' && your_turn ? selectedIndices : []}
             onCardClick={(i) => {
-              if (phase === 'discard') toggleSelect(i);
+              if (phase === 'discard' && your_turn) toggleSelect(i);
               else if (phase === 'play' && canPlay(i)) sendPlay(i);
             }}
           />
@@ -217,11 +260,14 @@ export function MultiplayerGameBoard() {
         <GameOverModal
           winner={winner}
           playerName={player.name}
+          opponentName={opponent.name}
           playerScore={player.score}
           opponentScore={opponent.score}
           onNewGame={disconnect}
         />
       )}
+
+      <ChatBubble />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 interface GameOverModalProps {
   winner: string;
   playerName: string;
+  opponentName: string;
   playerScore: number;
   opponentScore: number;
   onNewGame: () => void;
@@ -9,6 +10,7 @@ interface GameOverModalProps {
 export function GameOverModal({
   winner,
   playerName,
+  opponentName,
   playerScore,
   opponentScore,
   onNewGame,
@@ -31,7 +33,7 @@ export function GameOverModal({
             <div className="text-2xl font-bold">{playerScore}</div>
           </div>
           <div>
-            <div className="text-sm opacity-60">Computer</div>
+            <div className="text-sm opacity-60">{opponentName}</div>
             <div className="text-2xl font-bold">{opponentScore}</div>
           </div>
         </div>

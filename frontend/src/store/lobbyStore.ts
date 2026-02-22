@@ -4,11 +4,18 @@ import type { GameState } from '../api/types';
 
 type LobbyStatus = 'idle' | 'connecting' | 'waiting' | 'in_game';
 
+export interface ChatMessage {
+  from: 'me' | 'opponent';
+  text: string;
+  ts: number;
+}
+
 interface LobbyStore {
   status: LobbyStatus;
   joinCode: string | null;
   error: string | null;
   gameState: GameState | null;
+  chatMessages: ChatMessage[];
   ws: GameWebSocket | null;
 
   quickMatch: (name: string) => void;
@@ -35,6 +42,11 @@ export const useLobbyStore = create<LobbyStore>((set, get) => {
     ws.on('private_created', (data: any) => set({ joinCode: data.code }));
     ws.on('game_start', (data: any) => set({ status: 'in_game', gameState: data.state }));
     ws.on('game_state', (data: any) => set({ gameState: data.state }));
+    ws.on('opponent_disconnected', (data: any) => set({ error: data.message }));
+    ws.on('chat', (data: any) => {
+      const msg: ChatMessage = { from: 'opponent', text: data.message, ts: Date.now() };
+      set((s) => ({ chatMessages: [...s.chatMessages, msg] }));
+    });
     ws.on('error', (data: any) => set({ error: data.message }));
 
     ws.connect();
@@ -46,6 +58,7 @@ export const useLobbyStore = create<LobbyStore>((set, get) => {
     joinCode: null,
     error: null,
     gameState: null,
+    chatMessages: [],
     ws: null,
 
     quickMatch: (name) => {
@@ -70,11 +83,15 @@ export const useLobbyStore = create<LobbyStore>((set, get) => {
     sendPlay: (cardIndex) => get().ws?.send({ type: 'play_card', card_index: cardIndex }),
     sendGo: () => get().ws?.send({ type: 'say_go' }),
     sendAcknowledge: () => get().ws?.send({ type: 'acknowledge' }),
-    sendChat: (message) => get().ws?.send({ type: 'chat', message }),
+    sendChat: (message) => {
+      get().ws?.send({ type: 'chat', message });
+      const msg: ChatMessage = { from: 'me', text: message, ts: Date.now() };
+      set((s) => ({ chatMessages: [...s.chatMessages, msg] }));
+    },
 
     disconnect: () => {
       get().ws?.disconnect();
-      set({ ws: null, status: 'idle', joinCode: null, error: null, gameState: null });
+      set({ ws: null, status: 'idle', joinCode: null, error: null, gameState: null, chatMessages: [] });
     },
   };
 });

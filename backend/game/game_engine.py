@@ -402,7 +402,7 @@ class GameEngine:
             self.phase = GamePhase.COUNT_CRIB
 
         elif self.phase == GamePhase.COUNT_CRIB:
-            score, events = calculate_score(self.crib, self.starter)
+            score, events = calculate_score(self.crib, self.starter, is_crib=True)
             for e in events:
                 e.player = self.dealer.name
             self._add_score(self.dealer, score)

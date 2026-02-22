@@ -15,6 +15,7 @@ from backend.services.matchmaking import matchmaking
 class ConnectionManager:
     def __init__(self) -> None:
         self._connections: dict[str, WebSocket] = {}  # conn_id -> ws
+        self._names: dict[str, str] = {}  # conn_id -> display name
         self._games: dict[str, MultiplayerGameEngine] = {}  # game_id -> engine
         self._player_game: dict[str, str] = {}  # conn_id -> game_id
         self._player_role: dict[str, str] = {}  # conn_id -> "player1"/"player2"
@@ -30,13 +31,19 @@ class ConnectionManager:
         self._connections[conn_id] = ws
         return conn_id
 
-    def disconnect(self, conn_id: str) -> None:
+    async def disconnect(self, conn_id: str) -> None:
         self._connections.pop(conn_id, None)
+        self._names.pop(conn_id, None)
         matchmaking.remove_from_queue(conn_id)
         matchmaking.cancel_private_game(conn_id)
-        # Leave game in place so other player can finish
-        self._player_game.pop(conn_id, None)
+
+        # Notify the other player in the game
+        game_id = self._player_game.pop(conn_id, None)
         self._player_role.pop(conn_id, None)
+        if game_id:
+            for cid, gid in list(self._player_game.items()):
+                if gid == game_id and cid != conn_id:
+                    await self.send(cid, {"type": "opponent_disconnected", "message": "Your opponent has disconnected."})
 
     async def send(self, conn_id: str, data: dict) -> None:
         ws = self._connections.get(conn_id)
@@ -66,23 +73,26 @@ class ConnectionManager:
 
         if msg_type == "quick_match":
             name = data.get("name", "Player")
+            self._names[conn_id] = name
             match = matchmaking.add_to_queue(conn_id)
             if match:
-                await self._start_game(match, "Player 1", conn_id, name)
+                await self._start_game(match, self._names.get(match, "Player"), conn_id, name)
             else:
                 await self.send(conn_id, {"type": "waiting", "message": "Waiting for opponent..."})
 
         elif msg_type == "create_private":
             name = data.get("name", "Player")
+            self._names[conn_id] = name
             code = matchmaking.create_private_game(conn_id)
             await self.send(conn_id, {"type": "private_created", "code": code})
 
         elif msg_type == "join_private":
             code = data.get("code", "")
             name = data.get("name", "Player")
+            self._names[conn_id] = name
             creator = matchmaking.join_private_game(code)
             if creator:
-                await self._start_game(creator, "Player 1", conn_id, name)
+                await self._start_game(creator, self._names.get(creator, "Player"), conn_id, name)
             else:
                 await self.send(conn_id, {"type": "error", "message": "Game not found"})
 

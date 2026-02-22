@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGameStore } from './store/gameStore';
 import { useLobbyStore } from './store/lobbyStore';
 import { Header } from './components/Layout/Header';
@@ -14,20 +14,17 @@ function App() {
   const singleGame = useGameStore((s) => s.game);
   const lobbyStatus = useLobbyStore((s) => s.status);
 
-  // Auto-transition when single player game starts
-  if (screen === 'menu' && singleGame) {
-    setScreen('single');
-  }
-
-  // Auto-transition when multiplayer game starts
-  if (screen === 'lobby' && lobbyStatus === 'in_game') {
-    setScreen('multiplayer');
-  }
-
-  // When multiplayer disconnects, go back to menu
-  if (screen === 'multiplayer' && lobbyStatus === 'idle') {
-    setScreen('menu');
-  }
+  useEffect(() => {
+    if (screen === 'menu' && singleGame) {
+      setScreen('single');
+    }
+    if (screen === 'lobby' && lobbyStatus === 'in_game') {
+      setScreen('multiplayer');
+    }
+    if (screen === 'multiplayer' && lobbyStatus === 'idle') {
+      setScreen('menu');
+    }
+  }, [screen, singleGame, lobbyStatus]);
 
   const goHome = () => {
     useGameStore.setState({ game: null, selectedIndices: [], error: null });
